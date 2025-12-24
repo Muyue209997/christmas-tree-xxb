@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Christmas Memory - Auto Slideshow</title>
+    <title>Christmas Memory - Fast Auto Slideshow</title>
     <style>
-        /* 保持 v14 原版华丽样式 */
         body { margin: 0; overflow: hidden; background-color: #02040c; font-family: 'Times New Roman', serif; user-select: none; }
         #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
         #fireworks-canvas { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
@@ -30,8 +29,8 @@
 
     <div id="system-loader" class="fullscreen-overlay">
         <div class="spinner" id="sys-spinner"></div>
-        <div id="sys-status" class="loader-text">正在准备你的专属记忆星空...</div>
-        <button id="init-btn" style="display:none;" class="action-btn" onclick="startAutoPlayMagic()">开始自动播放</button>
+        <div id="sys-status" class="loader-text">正在同步你的记忆画卷...</div>
+        <button id="init-btn" style="display:none;" class="action-btn" onclick="startAutoPlayMagic()">开启 0.5s 极速巡展</button>
     </div>
 
     <div id="canvas-container"></div>
@@ -41,12 +40,10 @@
     <script>
         const MY_CONFIG = { greeting: "Merry Christmas", musicPath: "music.mp3" };
         let userPhotos = [];
-        let autoPlayTimer = null;
 
         window.onload = () => {
             if (window.startThreeEngine) window.startThreeEngine();
-            // 引导文字修改
-            document.getElementById('sys-status').innerHTML = "星空引擎已就绪<br>点击下方开启照片自动巡展";
+            document.getElementById('sys-status').innerHTML = "星空引擎就绪<br>点击下方开启自动轮播";
             document.getElementById('sys-spinner').style.display = 'none';
             document.getElementById('init-btn').style.display = 'block';
         };
@@ -56,11 +53,9 @@
             document.getElementById('init-btn').style.display = 'none';
             document.getElementById('sys-spinner').style.display = 'block';
             
-            // 自动探测照片
             let idx = 1;
             while (idx <= 100) {
-                // 3. 修改这里扫描时的文字
-                status.innerText = `正在捕捉第 ${idx} 片记忆...`;
+                status.innerText = `正在加载第 ${idx} 张照片...`;
                 const success = await new Promise((res) => {
                     const img = new Image();
                     img.src = `photos/${idx}.jpeg`;
@@ -77,13 +72,9 @@
             document.getElementById('system-loader').style.opacity = 0;
             setTimeout(() => {
                 document.getElementById('system-loader').style.display = 'none';
-                // 开启散开模式并开始自动轮播
-                startSlideshow();
+                // 核心：强制开启自动幻灯片
+                if (window.activateAutoSlideshow) window.activateAutoSlideshow();
             }, 800);
-        }
-
-        function startSlideshow() {
-            if (window.activateAutoSlideshow) window.activateAutoSlideshow();
         }
     </script>
 
@@ -94,17 +85,16 @@
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
         import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'; 
 
-        // --- 原版烟花系统 (100%保留) ---
         const fwCanvas = document.getElementById('fireworks-canvas');
         const fwCtx = fwCanvas.getContext('2d');
-        let fwScale; let particles = [];
+        let particles = [];
         const random = (min, max) => Math.random() * (max - min) + min;
-        class Spark { constructor(x, y, vx, vy) { this.x = x; this.y = y; this.vx = vx; this.vy = vy; this.life = random(40, 80); this.maxLife = this.life; } update() { this.vx *= 0.96; this.vy *= 0.96; this.vy += 0.05; this.x += this.vx; this.y += this.vy; this.life--; return this.life > 0; } draw() { fwCtx.fillStyle = `rgba(255, 217, 102, ${this.life/this.maxLife})`; fwCtx.beginPath(); fwCtx.arc(this.x, this.y, 2, 0, Math.PI*2); fwCtx.fill(); } }
-        class Shell { constructor(x, y, targetX, targetY) { this.x = x; this.y = y; this.targetY = targetY; this.vy = -Math.sqrt(2 * 0.15 * (y - targetY)); this.vx = (targetX - x) / (Math.abs(this.vy) / 0.15); this.isDead = false; } update() { this.vy += 0.15; this.x += this.vx; this.y += this.vy; if (this.vy >= 0) { this.isDead = true; for(let i=0; i<60; i++){ const ang = random(0, Math.PI*2); const spd = random(4, 15); particles.push(new Spark(this.x, this.y, Math.cos(ang)*spd, Math.sin(ang)*spd)); } } return !this.isDead; } draw() { fwCtx.fillStyle = '#ffaa00'; fwCtx.beginPath(); fwCtx.arc(this.x, this.y, 3, 0, Math.PI*2); fwCtx.fill(); } }
 
-        // --- 3D 引擎部分 (100%保留建模与光影) ---
+        class Spark { constructor(x, y, vx, vy) { this.x = x; this.y = y; this.vx = vx; this.vy = vy; this.life = random(40, 80); this.maxLife = this.life; } update() { this.vx *= 0.96; this.vy *= 0.96; this.vy += 0.05; this.x += this.vx; this.y += this.vy; this.life--; return this.life > 0; } draw() { fwCtx.fillStyle = `rgba(255, 217, 102, ${this.life/this.maxLife})`; fwCtx.beginPath(); fwCtx.arc(this.x, this.y, 2, 0, Math.PI*2); fwCtx.fill(); } }
+        class Shell { constructor(x, y, targetX, targetY) { this.x = x; this.y = y; this.targetY = targetY; this.vy = -Math.sqrt(2 * 0.15 * (y - targetY)); this.vx = (targetX - x) / (Math.abs(this.vy) / 0.15); this.isDead = false; } update() { this.vy += 0.15; this.x += this.vx; this.y += this.vy; if (this.vy >= 0) { this.isDead = true; for(let i=0; i<80; i++){ const ang = random(0, Math.PI*2); const spd = random(4, 15); particles.push(new Spark(this.x, this.y, Math.cos(ang)*spd, Math.sin(ang)*spd)); } } return !this.isDead; } draw() { fwCtx.fillStyle = '#ffaa00'; fwCtx.beginPath(); fwCtx.arc(this.x, this.y, 3, 0, Math.PI*2); fwCtx.fill(); } }
+
         const CONFIG = { colors: { bg: 0x02040c }, particles: { count: 1800, treeHeight: 24, treeRadius: 8.5 } };
-        const STATE = { mode: 'TREE', focusTarget: null, rotation: { x: 0, y: 0 }, photoIndex: -1 };
+        const STATE = { mode: 'TREE', focusTarget: null, rotation: { x: 0, y: 0 } };
         let scene, camera, renderer, composer, mainGroup, clock = new THREE.Clock(), particleSystem = [];
 
         window.startThreeEngine = function() {
@@ -133,9 +123,9 @@
             });
         };
 
-        // --- 核心：自动轮播巡展逻辑 ---
+        // --- 修正后的自动轮播巡展逻辑 ---
         window.activateAutoSlideshow = () => {
-            STATE.mode = 'SCATTER'; // 先散开
+            STATE.mode = 'SCATTER'; // 立即进入散开模式
             const photos = particleSystem.filter(p => p.type === 'PHOTO');
             let currentIdx = 0;
 
@@ -144,10 +134,10 @@
                     STATE.mode = 'FOCUS';
                     STATE.focusTarget = photos[currentIdx].mesh;
                     currentIdx++;
-                    // 每张照片停留 5 秒
-                    setTimeout(showNext, 1000); 
+                    // 设置每张照片停留 0.5 秒 (500 毫秒)
+                    setTimeout(showNext, 500); 
                 } else {
-                    // 播放完了，回到树形态并放烟花
+                    // 巡展结束，回到树形态并放烟花
                     STATE.mode = 'TREE';
                     STATE.focusTarget = null;
                     const cx = window.innerWidth/2;
@@ -156,7 +146,8 @@
                     }, 500);
                 }
             };
-            setTimeout(showNext, 2000); // 散开 2 秒后开始第一张
+            // 延迟 1.5 秒等树散开后开始巡展
+            setTimeout(showNext, 1500); 
         };
 
         class Particle {
@@ -176,7 +167,8 @@
                     target = new THREE.Vector3(0, 1.5, 36).applyMatrix4(new THREE.Matrix4().copy(mainGroup.matrixWorld).invert());
                     this.mesh.lookAt(camera.position); s = 4.5;
                 } else if(mode === 'FOCUS') { s = this.type === 'PHOTO' ? this.baseScale*2.5 : this.baseScale*0.5; target = this.posScatter; }
-                this.mesh.position.lerp(target, 2.5 * dt); this.mesh.scale.lerp(new THREE.Vector3(s,s,s), 4 * dt);
+                this.mesh.position.lerp(target, 4.0 * dt); // 提升位移速度适配 0.5s 节奏
+                this.mesh.scale.lerp(new THREE.Vector3(s,s,s), 6 * dt);
             }
         }
 
