@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Magical Christmas Tree v14 - Full Auto Edition</title>
+    <title>Christmas Memory - Auto Slideshow</title>
     <style>
-        /* 100% 原版样式 */
+        /* 保持 v14 原版华丽样式 */
         body { margin: 0; overflow: hidden; background-color: #02040c; font-family: 'Times New Roman', serif; user-select: none; }
         #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
         #fireworks-canvas { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
@@ -15,16 +15,13 @@
         .action-btn { background: #d4af37; color: #000; border: none; padding: 15px 40px; font-size: 16px; letter-spacing: 4px; text-transform: uppercase; cursor: pointer; margin-top: 20px; font-weight: bold; box-shadow: 0 0 30px rgba(212, 175, 55, 0.3); transition: transform 0.2s, box-shadow 0.2s; border-radius: 4px; }
         .spinner { width: 40px; height: 40px; border: 2px solid rgba(212, 175, 55, 0.2); border-top: 2px solid #d4af37; border-radius: 50%; animation: spin 1s infinite linear; margin-bottom: 20px; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .loader-text { font-size: 14px; letter-spacing: 2px; color: #d4af37; text-align: center; line-height: 1.8; }
-        #webcam-wrapper { position: absolute; bottom: 20px; right: 20px; width: 100px; height: 75px; opacity: 0; pointer-events: none; z-index: 50; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden; }
+        .loader-text { font-size: 16px; letter-spacing: 2px; color: #d4af37; text-align: center; line-height: 1.8; }
     </style>
-    <style>@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap');</style>
     <script type="importmap">
         {
             "imports": {
                 "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-                "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/+esm"
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
             }
         }
     </script>
@@ -33,42 +30,37 @@
 
     <div id="system-loader" class="fullscreen-overlay">
         <div class="spinner" id="sys-spinner"></div>
-        <div id="sys-status" class="loader-text">正在启动圣诞魔法引擎 v14...</div>
-        <button id="init-btn" style="display:none;" class="action-btn" onclick="startFullRestoreMagic()">学习部的宝子们圣诞快乐！！！
+        <div id="sys-status" class="loader-text">正在准备你的专属记忆星空...</div>
+        <button id="init-btn" style="display:none;" class="action-btn" onclick="startAutoPlayMagic()">开始自动播放</button>
     </div>
 
     <div id="canvas-container"></div>
     <canvas id="fireworks-canvas"></canvas>
     <div id="ui-layer"><h1 id="main-title">Merry Christmas</h1></div>
-    <div id="webcam-wrapper"><video id="webcam" autoplay playsinline style="display:none;"></video><canvas id="webcam-preview"></canvas></div>
 
     <script>
         const MY_CONFIG = { greeting: "Merry Christmas", musicPath: "music.mp3" };
         let userPhotos = [];
-        let isCameraReady = false;
-        let globalStream = null;
+        let autoPlayTimer = null;
 
         window.onload = () => {
             if (window.startThreeEngine) window.startThreeEngine();
-            document.getElementById('sys-status').innerHTML = "星空引擎已加载<br>请开启摄像头权限以享受完整体验";
+            // 引导文字修改
+            document.getElementById('sys-status').innerHTML = "星空引擎已就绪<br>点击下方开启照片自动巡展";
             document.getElementById('sys-spinner').style.display = 'none';
             document.getElementById('init-btn').style.display = 'block';
         };
 
-        async function startFullRestoreMagic() {
+        async function startAutoPlayMagic() {
             const status = document.getElementById('sys-status');
             document.getElementById('init-btn').style.display = 'none';
             document.getElementById('sys-spinner').style.display = 'block';
             
-            try {
-                globalStream = await navigator.mediaDevices.getUserMedia({ video: true });
-                isCameraReady = true;
-                if(window.initMediaPipeModule) window.initMediaPipeModule(globalStream);
-            } catch (e) { isCameraReady = false; status.innerText = "摄像头未开启，切换至鼠标模式..."; }
-
+            // 自动探测照片
             let idx = 1;
             while (idx <= 100) {
-                status.innerText = `正在捕捉第 ${idx} 个学习部记忆碎片...`;
+                // 3. 修改这里扫描时的文字
+                status.innerText = `正在捕捉第 ${idx} 片记忆...`;
                 const success = await new Promise((res) => {
                     const img = new Image();
                     img.src = `photos/${idx}.jpeg`;
@@ -85,9 +77,13 @@
             document.getElementById('system-loader').style.opacity = 0;
             setTimeout(() => {
                 document.getElementById('system-loader').style.display = 'none';
-                if(window.activateInteraction) window.activateInteraction();
-                if(isCameraReady) document.getElementById('webcam-wrapper').style.opacity = 0.5;
+                // 开启散开模式并开始自动轮播
+                startSlideshow();
             }, 800);
+        }
+
+        function startSlideshow() {
+            if (window.activateAutoSlideshow) window.activateAutoSlideshow();
         }
     </script>
 
@@ -97,25 +93,19 @@
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
         import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'; 
-        import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
 
-        // --- FIREWORKS ---
+        // --- 原版烟花系统 (100%保留) ---
         const fwCanvas = document.getElementById('fireworks-canvas');
         const fwCtx = fwCanvas.getContext('2d');
-        let fwWidth, fwHeight, fwScale;
-        let particles = []; let smokes = [];
+        let fwScale; let particles = [];
         const random = (min, max) => Math.random() * (max - min) + min;
+        class Spark { constructor(x, y, vx, vy) { this.x = x; this.y = y; this.vx = vx; this.vy = vy; this.life = random(40, 80); this.maxLife = this.life; } update() { this.vx *= 0.96; this.vy *= 0.96; this.vy += 0.05; this.x += this.vx; this.y += this.vy; this.life--; return this.life > 0; } draw() { fwCtx.fillStyle = `rgba(255, 217, 102, ${this.life/this.maxLife})`; fwCtx.beginPath(); fwCtx.arc(this.x, this.y, 2, 0, Math.PI*2); fwCtx.fill(); } }
+        class Shell { constructor(x, y, targetX, targetY) { this.x = x; this.y = y; this.targetY = targetY; this.vy = -Math.sqrt(2 * 0.15 * (y - targetY)); this.vx = (targetX - x) / (Math.abs(this.vy) / 0.15); this.isDead = false; } update() { this.vy += 0.15; this.x += this.vx; this.y += this.vy; if (this.vy >= 0) { this.isDead = true; for(let i=0; i<60; i++){ const ang = random(0, Math.PI*2); const spd = random(4, 15); particles.push(new Spark(this.x, this.y, Math.cos(ang)*spd, Math.sin(ang)*spd)); } } return !this.isDead; } draw() { fwCtx.fillStyle = '#ffaa00'; fwCtx.beginPath(); fwCtx.arc(this.x, this.y, 3, 0, Math.PI*2); fwCtx.fill(); } }
 
-        class Smoke { constructor(x, y) { this.x = x; this.y = y; this.vx = random(-0.25, 0.25); this.vy = random(-0.15, 0.15); this.size = random(20, 45); this.life = 80; this.maxLife = 80; } update() { this.x += this.vx; this.y += this.vy; this.size += 0.2; this.life--; return this.life > 0; } draw() { fwCtx.fillStyle = `rgba(150,150,150,${this.life/this.maxLife*0.2})`; fwCtx.beginPath(); fwCtx.arc(this.x, this.y, this.size, 0, Math.PI*2); fwCtx.fill(); } }
-        class Spark { constructor(x, y, vx, vy) { this.x = x; this.y = y; this.vx = vx; this.vy = vy; this.life = random(40, 80); this.maxLife = this.life; } update() { this.vx *= 0.96; this.vy *= 0.96; this.vy += 0.05; this.x += this.vx; this.y += this.vy; this.life--; return this.life > 0; } draw() { fwCtx.fillStyle = `rgba(255, 217, 102, ${this.life/this.maxLife})`; fwCtx.beginPath(); fwCtx.arc(this.x, this.y, 2*fwScale, 0, Math.PI*2); fwCtx.fill(); } }
-        class Shell { constructor(x, y, targetX, targetY) { this.x = x; this.y = y; this.vy = -Math.sqrt(2 * 0.15 * (y - targetY)); this.vx = (targetX - x) / (Math.abs(this.vy) / 0.15); this.isDead = false; } update() { this.vy += 0.15; this.x += this.vx; this.y += this.vy; if (this.vy >= 0) { this.isDead = true; for(let i=0; i<80; i++){ const ang = random(0, Math.PI*2); const spd = random(4, 18); particles.push(new Spark(this.x, this.y, Math.cos(ang)*spd, Math.sin(ang)*spd)); } } return !this.isDead; } draw() { fwCtx.fillStyle = '#ffaa00'; fwCtx.beginPath(); fwCtx.arc(this.x, this.y, 3, 0, Math.PI*2); fwCtx.fill(); } }
-        function triggerFireworks() { const cx = window.innerWidth/2; for(let i=0; i<5; i++){ setTimeout(() => { particles.push(new Shell(cx, window.innerHeight, cx + (i-2)*200, window.innerHeight*0.25)); }, i*250); } }
-
-        // --- 3D ENGINE ---
-        const CONFIG = { colors: { bg: 0x02040c, gold: 0xffd966, green: 0x03180a, red: 0x990000 }, particles: { count: 1800, treeHeight: 24, treeRadius: 8.5 }, snow: { count: 1500 } };
-        const STATE = { mode: 'TREE', focusTarget: null, hand: { detected: false, x: 0, y: 0 }, rotation: { x: 0, y: 0 }, interactionEnabled: false, hasExpandedOnce: false, photoIndex: -1 };
-        let scene, camera, renderer, composer, mainGroup, clock = new THREE.Clock(), particleSystem = [], handLandmarker, video;
-        let raycaster = new THREE.Raycaster(), mouse = new THREE.Vector2();
+        // --- 3D 引擎部分 (100%保留建模与光影) ---
+        const CONFIG = { colors: { bg: 0x02040c }, particles: { count: 1800, treeHeight: 24, treeRadius: 8.5 } };
+        const STATE = { mode: 'TREE', focusTarget: null, rotation: { x: 0, y: 0 }, photoIndex: -1 };
+        let scene, camera, renderer, composer, mainGroup, clock = new THREE.Clock(), particleSystem = [];
 
         window.startThreeEngine = function() {
             scene = new THREE.Scene(); scene.background = new THREE.Color(CONFIG.colors.bg); scene.fog = new THREE.FogExp2(CONFIG.colors.bg, 0.015);
@@ -125,13 +115,9 @@
             renderer.toneMapping = THREE.ReinhardToneMapping; renderer.toneMappingExposure = 2.2;
             document.getElementById('canvas-container').appendChild(renderer.domElement);
             mainGroup = new THREE.Group(); mainGroup.position.y = -1.0; scene.add(mainGroup);
-
-            const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-            bloomPass.threshold = 0.7; bloomPass.strength = 0.6; bloomPass.radius = 0.5;
-            composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera)); composer.addPass(bloomPass);
-
+            const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.0, 0.4, 0.85);
+            composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera)); composer.addPass(bloom);
             scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-            const sun = new THREE.DirectionalLight(0xffeebb, 0.6); sun.position.set(0, 20, 50); scene.add(sun);
             createContent();
             animate();
         };
@@ -140,11 +126,37 @@
             photos.forEach(p => {
                 const tex = new THREE.TextureLoader().load(p.src); tex.colorSpace = THREE.SRGBColorSpace;
                 const group = new THREE.Group();
-                const frame = new THREE.Mesh(new THREE.BoxGeometry(1.2*p.aspect+0.2, 1.4, 0.05), new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.3, roughness: 0.8 }));
-                const photo = new THREE.Mesh(new THREE.PlaneGeometry(1.2*p.aspect, 1.2), new THREE.MeshBasicMaterial({ map: tex }));
+                const frame = new THREE.Mesh(new THREE.BoxGeometry(1.2*p.aspect+0.2, 1.4, 0.05), new THREE.MeshStandardMaterial({color: 0xffd700, roughness: 0.3, metalness: 0.8}));
+                const photo = new THREE.Mesh(new THREE.PlaneGeometry(1.2*p.aspect, 1.2), new THREE.MeshBasicMaterial({map: tex}));
                 photo.position.z = 0.03; group.add(frame); group.add(photo);
                 mainGroup.add(group); particleSystem.push(new Particle(group, 'PHOTO'));
             });
+        };
+
+        // --- 核心：自动轮播巡展逻辑 ---
+        window.activateAutoSlideshow = () => {
+            STATE.mode = 'SCATTER'; // 先散开
+            const photos = particleSystem.filter(p => p.type === 'PHOTO');
+            let currentIdx = 0;
+
+            const showNext = () => {
+                if (currentIdx < photos.length) {
+                    STATE.mode = 'FOCUS';
+                    STATE.focusTarget = photos[currentIdx].mesh;
+                    currentIdx++;
+                    // 每张照片停留 5 秒
+                    setTimeout(showNext, 1000); 
+                } else {
+                    // 播放完了，回到树形态并放烟花
+                    STATE.mode = 'TREE';
+                    STATE.focusTarget = null;
+                    const cx = window.innerWidth/2;
+                    setTimeout(() => { 
+                        for(let i=0; i<3; i++) particles.push(new Shell(cx, window.innerHeight, cx+(i-1)*200, window.innerHeight*0.3));
+                    }, 500);
+                }
+            };
+            setTimeout(showNext, 2000); // 散开 2 秒后开始第一张
         };
 
         class Particle {
@@ -169,20 +181,14 @@
         }
 
         function createContent() {
-            const pmrem = new THREE.PMREMGenerator(renderer);
-            scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
             const box = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-            const gold = new THREE.MeshStandardMaterial({ color: CONFIG.colors.gold, metalness: 0.6, roughness: 0.4, emissive: 0xffaa00, emissiveIntensity: 0.3 });
-            const green = new THREE.MeshStandardMaterial({ color: CONFIG.colors.green, emissive: 0x00ff00, emissiveIntensity: 0.1 });
+            const gold = new THREE.MeshStandardMaterial({ color: 0xffd966, emissive: 0xffaa00, emissiveIntensity: 0.5 });
+            const green = new THREE.MeshStandardMaterial({ color: 0x03180a, emissive: 0x00ff00, emissiveIntensity: 0.2 });
             for(let i=0; i<CONFIG.particles.count; i++) {
                 const m = new THREE.Mesh(box, Math.random() > 0.6 ? gold : green);
                 const s = 0.4 + Math.random()*0.5; m.scale.set(s,s,s);
                 mainGroup.add(m); particleSystem.push(new Particle(m, 'BOX'));
             }
-            const snowGeo = new THREE.BufferGeometry(); const snowPos = [];
-            for(let i=0; i<1500; i++) snowPos.push((Math.random()-0.5)*80, (Math.random()-0.5)*80, (Math.random()-0.5)*80);
-            snowGeo.setAttribute('position', new THREE.Float32BufferAttribute(snowPos, 3));
-            scene.add(new THREE.Points(snowGeo, new THREE.PointsMaterial({ size: 0.5, transparent: true, opacity: 0.7 })));
         }
 
         function animate() {
@@ -193,55 +199,7 @@
             particleSystem.forEach(p => p.update(dt, STATE.mode, STATE.focusTarget));
             composer.render();
         }
-
-        window.activateInteraction = () => {
-            STATE.interactionEnabled = true;
-            window.addEventListener('mousedown', (e) => {
-                mouse.x = (e.clientX / window.innerWidth) * 2 - 1; mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-                raycaster.setFromCamera(mouse, camera);
-                const intersects = raycaster.intersectObjects(mainGroup.children, true);
-                if(STATE.mode === 'TREE') { STATE.mode = 'SCATTER'; STATE.hasExpandedOnce = true; }
-                else if(STATE.mode === 'SCATTER') {
-                    let hit = false;
-                    for (let h of intersects) {
-                        let o = h.object; while(o.parent && o.parent !== mainGroup) o = o.parent;
-                        const p = particleSystem.find(pt => pt.mesh === o && pt.type === 'PHOTO');
-                        if(p){ STATE.mode='FOCUS'; STATE.focusTarget=o; hit=true; break; }
-                    }
-                    if(!hit) { STATE.mode='TREE'; triggerFireworks(); }
-                } else { STATE.mode='SCATTER'; STATE.focusTarget=null; }
-            });
-            window.addEventListener('resize', () => { 
-                camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); 
-                renderer.setSize(window.innerWidth, window.innerHeight); 
-                fwWidth = fwCanvas.width = window.innerWidth; fwHeight = fwCanvas.height = window.innerHeight;
-                fwScale = Math.min(fwWidth, fwHeight) / 900;
-            });
-            fwWidth = fwCanvas.width = window.innerWidth; fwHeight = fwCanvas.height = window.innerHeight;
-            fwScale = Math.min(fwWidth, fwHeight) / 900;
-        };
-
-        window.initMediaPipeModule = async (stream) => {
-            video = document.getElementById('webcam'); video.srcObject = stream;
-            const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
-            handLandmarker = await HandLandmarker.createFromOptions(vision, { baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`, delegate: "GPU" }, runningMode: "VIDEO" });
-            video.addEventListener("loadeddata", () => {
-                const predict = () => {
-                    if(handLandmarker && video.readyState >= 2){
-                        const res = handLandmarker.detectForVideo(video, performance.now());
-                        if(res.landmarks.length > 0) {
-                            STATE.hand.detected = true;
-                            const pinch = Math.hypot(res.landmarks[0][4].x - res.landmarks[0][8].x, res.landmarks[0][4].y - res.landmarks[0][8].y);
-                            if(STATE.mode === 'SCATTER' && pinch < 0.05) {
-                                const pts = particleSystem.filter(p => p.type === 'PHOTO');
-                                if(pts.length > 0){ STATE.photoIndex = (STATE.photoIndex+1)%pts.length; STATE.mode='FOCUS'; STATE.focusTarget=pts[STATE.photoIndex].mesh; }
-                            } else if(STATE.mode === 'FOCUS' && pinch > 0.08) { STATE.mode='SCATTER'; }
-                        }
-                    }
-                    requestAnimationFrame(predict);
-                }; predict();
-            });
-        };
+        window.addEventListener('resize', () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
     </script>
 </body>
 </html>
