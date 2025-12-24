@@ -34,7 +34,7 @@
     <div id="system-loader" class="fullscreen-overlay">
         <div class="spinner" id="sys-spinner"></div>
         <div id="sys-status" class="loader-text">正在启动圣诞魔法引擎 v14...</div>
-        <button id="init-btn" style="display:none;" class="action-btn" onclick="startFullRestoreMagic()">开启沉浸式魔法</button>
+        <button id="init-btn" style="display:none;" class="action-btn" onclick="startFullRestoreMagic()">学习部的宝子们圣诞快乐！！！>xue'xi'b
     </div>
 
     <div id="canvas-container"></div>
@@ -68,7 +68,7 @@
 
             let idx = 1;
             while (idx <= 100) {
-                status.innerText = `正在捕捉第 ${idx} 个记忆碎片...`;
+                status.innerText = `正在捕捉第 ${idx} 个学习部记忆碎片...`;
                 const success = await new Promise((res) => {
                     const img = new Image();
                     img.src = `photos/${idx}.jpeg`;
