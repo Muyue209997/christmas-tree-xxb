@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Magical Christmas Tree - Ultimate Original Version</title>
+    <title>Magical Christmas Tree v14 - Auto Gallery</title>
     <style>
+        /* 保持原版 v14 所有样式 */
         body { margin: 0; overflow: hidden; background-color: #02040c; font-family: 'Times New Roman', serif; user-select: none; }
         #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
         #fireworks-canvas { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
@@ -31,8 +32,8 @@
 
     <div id="system-loader" class="fullscreen-overlay">
         <div class="spinner" id="sys-spinner"></div>
-        <div id="sys-status" class="loader-text">正在唤醒完整的圣诞魔法...</div>
-        <button id="init-btn" style="display:none;" class="action-btn" onclick="startFullMagic()">开启沉浸式体验</button>
+        <div id="sys-status" class="loader-text">正在初始化 v14 魔法引擎...</div>
+        <button id="init-btn" style="display:none;" class="action-btn" onclick="startAutoMagic()">进入圣诞奇境</button>
     </div>
 
     <div id="canvas-container"></div>
@@ -41,49 +42,68 @@
     <div id="webcam-wrapper"><video id="webcam" autoplay playsinline style="display:none;"></video><canvas id="webcam-preview"></canvas></div>
 
     <script>
-        const MY_CONFIG = { greeting: "Merry Christmas", musicPath: "music.mp3" };
+        // --- 自动化配置 ---
+        const CONFIG_AUTO = {
+            greeting: "Merry Christmas",
+            musicPath: "music.mp3",
+            photoFolder: "photos/"
+        };
+
         let userPhotos = [];
         let isCameraReady = false;
         let globalStream = null;
 
+        // 加载时直接启动 3D 引擎
         window.onload = () => {
             if (window.startThreeEngine) window.startThreeEngine();
-            document.getElementById('sys-status').innerHTML = "引擎就绪，正在等待指令...";
+            document.getElementById('sys-status').innerHTML = "星空引擎就绪<br>点击下方按钮自动识别照片库";
             document.getElementById('sys-spinner').style.display = 'none';
             document.getElementById('init-btn').style.display = 'block';
         };
 
-        async function startFullMagic() {
+        // 核心：动态探测照片数量
+        async function startAutoMagic() {
             const status = document.getElementById('sys-status');
             document.getElementById('init-btn').style.display = 'none';
             document.getElementById('sys-spinner').style.display = 'block';
             
-            // 1. 请求摄像头
+            // 1. 开启摄像头
             try {
                 globalStream = await navigator.mediaDevices.getUserMedia({ video: true });
                 isCameraReady = true;
                 if(window.initMediaPipeModule) window.initMediaPipeModule(globalStream);
-            } catch (e) { isCameraReady = false; status.innerText = "切换为触控模式..."; }
-
-            // 2. 动态搜索照片 (1.jpeg -> 100.jpeg)
-            let idx = 1;
-            while (idx <= 100) {
-                status.innerText = `正在加载第 ${idx} 张记忆挂饰...`;
-                const success = await new Promise((res) => {
-                    const img = new Image();
-                    img.src = `photos/${idx}.jpeg`;
-                    img.onload = () => { userPhotos.push({ src: img.src, aspect: img.width / img.height }); res(true); };
-                    img.onerror = () => res(false);
-                });
-                if (!success) break;
-                idx++;
+            } catch (e) {
+                isCameraReady = false;
+                status.innerText = "摄像头未就绪，切换至触控模式";
             }
 
+            // 2. 探测 1.jpeg, 2.jpeg... 直到找不到为止
+            let idx = 1;
+            let searching = true;
+            while (searching && idx <= 100) {
+                status.innerText = `正在同步第 ${idx} 张记忆挂饰...`;
+                const found = await new Promise((resolve) => {
+                    const img = new Image();
+                    img.src = `${CONFIG_AUTO.photoFolder}${idx}.jpeg`;
+                    img.onload = () => {
+                        userPhotos.push({ src: img.src, aspect: img.width / img.height });
+                        resolve(true);
+                    };
+                    img.onerror = () => resolve(false);
+                });
+                if (found) idx++; else searching = false;
+            }
+
+            // 3. 注入数据并启动
             if (window.addPhotosToRunningScene) window.addPhotosToRunningScene(userPhotos);
-            const audio = new Audio(MY_CONFIG.musicPath); audio.loop = true; audio.play().catch(()=>{});
-            document.getElementById('system-loader').style.opacity = 0;
+            const audio = new Audio(CONFIG_AUTO.musicPath);
+            audio.loop = true; audio.play().catch(()=>{});
+            
+            document.getElementById('main-title').innerText = CONFIG_AUTO.greeting;
+            const loader = document.getElementById('system-loader');
+            loader.style.opacity = 0;
             setTimeout(() => {
-                document.getElementById('system-loader').style.display = 'none';
+                loader.style.display = 'none';
                 if(window.activateInteraction) window.activateInteraction();
                 if(isCameraReady) document.getElementById('webcam-wrapper').style.opacity = 0.5;
             }, 800);
@@ -98,7 +118,7 @@
         import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'; 
         import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
 
-        // --- 1. FIREWORKS ENGINE (原版复刻) ---
+        // --- FIREWORKS ---
         const fwCanvas = document.getElementById('fireworks-canvas');
         const fwCtx = fwCanvas.getContext('2d');
         let fwWidth, fwHeight, fwScale;
@@ -106,15 +126,13 @@
         let smokes = [];
         const random = (min, max) => Math.random() * (max - min) + min;
 
-        class Smoke { constructor(x, y) { this.x = x; this.y = y; this.vx = random(-0.25, 0.25); this.vy = random(-0.15, 0.15); this.size = random(20, 45); this.growth = 0.2; this.life = 80; this.maxLife = 80; } update() { this.x += this.vx; this.y += this.vy; this.size += this.growth; this.life--; return this.life > 0; } draw() { fwCtx.fillStyle = `rgba(150,150,150,${this.life/this.maxLife * 0.2})`; fwCtx.beginPath(); fwCtx.arc(this.x, this.y, this.size, 0, Math.PI*2); fwCtx.fill(); } }
         class Spark { constructor(x, y, vx, vy) { this.x = x; this.y = y; this.vx = vx; this.vy = vy; this.life = random(40, 80); this.maxLife = this.life; } update() { this.vx *= 0.96; this.vy *= 0.96; this.vy += 0.05; this.x += this.vx; this.y += this.vy; this.life--; return this.life > 0; } draw() { fwCtx.fillStyle = `rgba(255, 217, 102, ${this.life/this.maxLife})`; fwCtx.beginPath(); fwCtx.arc(this.x, this.y, 2, 0, Math.PI*2); fwCtx.fill(); } }
         class Shell { constructor(x, y, targetX, targetY) { this.x = x; this.y = y; this.targetY = targetY; this.vy = -Math.sqrt(2 * 0.15 * (y - targetY)); this.vx = (targetX - x) / (Math.abs(this.vy) / 0.15); this.isDead = false; } update() { this.vy += 0.15; this.x += this.vx; this.y += this.vy; if (this.vy >= 0) { this.isDead = true; for(let i=0; i<80; i++){ const ang = random(0, Math.PI*2); const spd = random(4, 18); particles.push(new Spark(this.x, this.y, Math.cos(ang)*spd, Math.sin(ang)*spd)); } } return !this.isDead; } draw() { fwCtx.fillStyle = '#ffaa00'; fwCtx.beginPath(); fwCtx.arc(this.x, this.y, 3, 0, Math.PI*2); fwCtx.fill(); } }
-
         function triggerChapter3Fireworks() { const cx = window.innerWidth/2; for(let i=0; i<5; i++) { setTimeout(() => { particles.push(new Shell(cx, window.innerHeight, cx + (i-2)*200, window.innerHeight*0.25)); }, i*250); } }
 
-        // --- 2. 3D ENGINE (原版建模复刻) ---
-        const CONFIG = { colors: { bg: 0x02040c, gold: 0xffd966, green: 0x03180a, red: 0x990000 }, particles: { count: 1800, treeHeight: 24, treeRadius: 8.5 } };
-        const STATE = { mode: 'TREE', focusTarget: null, rotation: { x: 0, y: 0 }, interactionEnabled: false, hasExpandedOnce: false };
+        // --- 3D SCENE ---
+        const CONFIG = { colors: { bg: 0x02040c, gold: 0xffd966, green: 0x03180a, red: 0x990000 }, particles: { count: 1800, treeHeight: 24, treeRadius: 8.5 }, camera: { z: 50 } };
+        const STATE = { mode: 'TREE', focusTarget: null, hand: { detected: false, x: 0, y: 0 }, rotation: { x: 0, y: 0 }, interactionEnabled: false, hasExpandedOnce: false };
         let scene, camera, renderer, composer, mainGroup, clock = new THREE.Clock(), particleSystem = [], handLandmarker, video;
         let raycaster = new THREE.Raycaster(), mouse = new THREE.Vector2();
 
@@ -125,30 +143,21 @@
             renderer.setSize(window.innerWidth, window.innerHeight); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             renderer.toneMapping = THREE.ReinhardToneMapping; renderer.toneMappingExposure = 2.2;
             document.getElementById('canvas-container').appendChild(renderer.domElement);
-            
             mainGroup = new THREE.Group(); mainGroup.position.y = -1.0; scene.add(mainGroup);
-            
-            const renderPass = new RenderPass(scene, camera);
-            const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-            bloomPass.threshold = 0.7; bloomPass.strength = 1.0; bloomPass.radius = 0.5;
-            composer = new EffectComposer(renderer); composer.addPass(renderPass); composer.addPass(bloomPass);
+
+            const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.0, 0.4, 0.85);
+            composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera)); composer.addPass(bloomPass);
             
             scene.add(new THREE.AmbientLight(0xffffff, 0.7));
             createContent();
-            window.addEventListener('resize', () => { 
-                camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); 
-                renderer.setSize(window.innerWidth, window.innerHeight); 
-                fwWidth = fwCanvas.width = window.innerWidth; fwHeight = fwCanvas.height = window.innerHeight;
-            });
-            fwWidth = fwCanvas.width = window.innerWidth; fwHeight = fwCanvas.height = window.innerHeight;
             animate();
         };
 
         window.addPhotosToRunningScene = function(photos) {
             photos.forEach(p => {
                 const tex = new THREE.TextureLoader().load(p.src);
-                const frame = new THREE.Mesh(new THREE.BoxGeometry(1.2*p.aspect+0.2, 1.4, 0.05), new THREE.MeshStandardMaterial({color: 0xffd700, metalness: 0.5, roughness: 0.5}));
-                const photo = new THREE.Mesh(new THREE.PlaneGeometry(1.2*p.aspect, 1.2), new THREE.MeshBasicMaterial({map: tex}));
+                const frame = new THREE.Mesh(new THREE.BoxGeometry(1.2*p.aspect+0.2, 1.4, 0.05), new THREE.MeshStandardMaterial({ color: CONFIG.colors.gold, metalness: 0.5, roughness: 0.5 }));
+                const photo = new THREE.Mesh(new THREE.PlaneGeometry(1.2*p.aspect, 1.2), new THREE.MeshBasicMaterial({ map: tex }));
                 photo.position.z = 0.03; const g = new THREE.Group(); g.add(frame); g.add(photo);
                 mainGroup.add(g); particleSystem.push(new Particle(g, 'PHOTO'));
             });
@@ -189,7 +198,7 @@
 
         function animate() {
             requestAnimationFrame(animate); const dt = clock.getDelta();
-            fwCtx.clearRect(0,0,fwWidth,fwHeight);
+            fwCtx.clearRect(0,0,window.innerWidth, window.innerHeight);
             let pIdx = particles.length; while(pIdx--) { if(!particles[pIdx].update()) particles.splice(pIdx, 1); else particles[pIdx].draw(); }
             if(STATE.mode === 'TREE') mainGroup.rotation.y += 0.3 * dt;
             particleSystem.forEach(p => p.update(dt, STATE.mode, STATE.focusTarget));
@@ -203,8 +212,17 @@
                 else { STATE.mode = 'TREE'; if(STATE.hasExpandedOnce) triggerChapter3Fireworks(); }
             });
         };
-        window.startThreeEngine();
-        window.setupInteraction();
+
+        window.initMediaPipeModule = async function(stream) {
+            video = document.getElementById('webcam');
+            const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
+            handLandmarker = await HandLandmarker.createFromOptions(vision, { baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`, delegate: "GPU" }, runningMode: "VIDEO" });
+            video.srcObject = stream; video.addEventListener("loadeddata", () => {
+                const predict = () => { if(handLandmarker && video.readyState>=2){ const res = handLandmarker.detectForVideo(video, performance.now()); if(res.landmarks.length>0){ STATE.hand.detected=true; } } requestAnimationFrame(predict); };
+                predict();
+            });
+        };
+
         window.activateInteraction = () => STATE.interactionEnabled = true;
     </script>
 </body>
