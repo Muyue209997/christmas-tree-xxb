@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>祝学习部的宝子们圣诞节快乐</title>
     <style>
-        /* 100% 完整保留原版 v14 华丽样式 */
         body { margin: 0; overflow: hidden; background-color: #02040c; font-family: 'Times New Roman', serif; user-select: none; }
         #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
         #fireworks-canvas { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
@@ -76,7 +75,8 @@
             document.getElementById('system-loader').style.opacity = 0;
             setTimeout(() => {
                 document.getElementById('system-loader').style.display = 'none';
-                if (window.activateAutoSlideshow) window.activateAutoSlideshow();
+                // 核心改动：先启动巡展，巡展完后开启手动点选
+                if (window.activateAutoAndManualMode) window.activateAutoAndManualMode();
             }, 800);
         }
     </script>
@@ -97,10 +97,11 @@
         class Spark { constructor(x, y, vx, vy) { this.x = x; this.y = y; this.vx = vx; this.vy = vy; this.life = random(40, 80); this.maxLife = this.life; } update() { this.vx *= 0.96; this.vy *= 0.96; this.vy += 0.05; this.x += this.vx; this.y += this.vy; this.life--; return this.life > 0; } draw() { fwCtx.fillStyle = `rgba(255, 217, 102, ${this.life/this.maxLife})`; fwCtx.beginPath(); fwCtx.arc(this.x, this.y, 2, 0, Math.PI*2); fwCtx.fill(); } }
         class Shell { constructor(x, y, targetX, targetY) { this.x = x; this.y = y; this.targetY = targetY; this.vy = -Math.sqrt(2 * 0.15 * (y - targetY)); this.vx = (targetX - x) / (Math.abs(this.vy) / 0.15); this.isDead = false; } update() { this.vy += 0.15; this.x += this.vx; this.y += this.vy; if (this.vy >= 0) { this.isDead = true; for(let i=0; i<80; i++){ const ang = random(0, Math.PI*2); const spd = random(4, 15); particles.push(new Spark(this.x, this.y, Math.cos(ang)*spd, Math.sin(ang)*spd)); } } return !this.isDead; } draw() { fwCtx.fillStyle = '#ffaa00'; fwCtx.beginPath(); fwCtx.arc(this.x, this.y, 3, 0, Math.PI*2); fwCtx.fill(); } }
 
-        // --- 完整保留：3D 引擎与 v14 原版视觉参数 ---
+        // --- 完整保留：3D 引擎与 v14 原版参数 ---
         const CONFIG = { colors: { bg: 0x02040c }, particles: { count: 1800, treeHeight: 24, treeRadius: 8.5 } };
-        const STATE = { mode: 'TREE', focusTarget: null, rotation: { x: 0, y: 0 } };
+        const STATE = { mode: 'TREE', focusTarget: null, rotation: { x: 0, y: 0 }, isAutoPlaying: true };
         let scene, camera, renderer, composer, mainGroup, clock = new THREE.Clock(), particleSystem = [];
+        let raycaster = new THREE.Raycaster(), mouse = new THREE.Vector2();
 
         window.startThreeEngine = function() {
             scene = new THREE.Scene(); scene.background = new THREE.Color(CONFIG.colors.bg); scene.fog = new THREE.FogExp2(CONFIG.colors.bg, 0.015);
@@ -115,6 +116,7 @@
             scene.add(new THREE.AmbientLight(0xffffff, 0.7));
             createContent();
             animate();
+            setupManualInteraction();
         };
 
         window.addPhotosToRunningScene = function(photos) {
@@ -128,25 +130,60 @@
             });
         };
 
-        window.activateAutoSlideshow = () => {
-            STATE.mode = 'SCATTER';
+        // --- 核心改动：自动巡展 + 结束后手动点选 ---
+        window.activateAutoAndManualMode = () => {
+            STATE.mode = 'SCATTER'; 
             const photos = particleSystem.filter(p => p.type === 'PHOTO');
             let currentIdx = 0;
-            const showNext = () => {
+
+            const showNextAuto = () => {
                 if (currentIdx < photos.length) {
                     STATE.mode = 'FOCUS';
                     STATE.focusTarget = photos[currentIdx].mesh;
                     currentIdx++;
-                    setTimeout(showNext, 2500); 
+                    setTimeout(showNextAuto, 2500); // 自动停留2.5秒
                 } else {
+                    // 巡展结束，状态回归
+                    STATE.isAutoPlaying = false; 
                     STATE.mode = 'TREE'; STATE.focusTarget = null;
-                    document.getElementById('main-title').innerText = "圣诞快乐！";
+                    document.getElementById('main-title').innerText = "圣诞快乐！(可自由点击照片)";
                     const cx = window.innerWidth/2;
                     setTimeout(() => { for(let i=0; i<3; i++) particles.push(new Shell(cx, window.innerHeight, cx+(i-1)*200, window.innerHeight*0.3)); }, 500);
                 }
             };
-            setTimeout(showNext, 1500);
+            setTimeout(showNextAuto, 1500);
         };
+
+        function setupManualInteraction() {
+            window.addEventListener('mousedown', (e) => {
+                // 只有当自动播放结束，且不是在自动播放期间，才允许点击
+                if (STATE.isAutoPlaying) return;
+
+                mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(mainGroup.children, true);
+
+                if (intersects.length > 0) {
+                    let obj = intersects[0].object;
+                    while(obj.parent && obj.parent !== mainGroup) obj = obj.parent;
+                    const p = particleSystem.find(pt => pt.mesh === obj && pt.type === 'PHOTO');
+                    
+                    if(p) {
+                        if(STATE.mode === 'FOCUS' && STATE.focusTarget === p.mesh) {
+                            STATE.mode = 'TREE'; STATE.focusTarget = null;
+                        } else {
+                            STATE.mode = 'FOCUS'; STATE.focusTarget = p.mesh;
+                        }
+                    } else {
+                        STATE.mode = (STATE.mode === 'TREE') ? 'SCATTER' : 'TREE';
+                        STATE.focusTarget = null;
+                    }
+                } else {
+                    STATE.mode = 'TREE'; STATE.focusTarget = null;
+                }
+            });
+        }
 
         class Particle {
             constructor(mesh, type) {
@@ -180,7 +217,7 @@
                 mainGroup.add(m); particleSystem.push(new Particle(m, 'BOX'));
             }
 
-            // --- 修正：真正立在树顶的璀璨五角星 ⭐ ---
+            // --- 真正的五角星顶 ⭐ ---
             const starShape = new THREE.Shape();
             const outerRadius = 1.5; const innerRadius = 0.7;
             for (let i = 0; i < 10; i++) {
@@ -190,18 +227,11 @@
                 if (i === 0) starShape.moveTo(x, y); else starShape.lineTo(x, y);
             }
             starShape.closePath();
-            
-            const starGeo = new THREE.ExtrudeGeometry(starShape, { 
-                depth: 0.4, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.1, bevelSegments: 3 
-            });
+            const starGeo = new THREE.ExtrudeGeometry(starShape, { depth: 0.4, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.1, bevelSegments: 3 });
             starGeo.center(); 
-            
-            const starMat = new THREE.MeshStandardMaterial({ 
-                color: 0xffdd88, emissive: 0xffaa00, emissiveIntensity: 4.0, metalness: 1.0, roughness: 0.1 
-            });
+            const starMat = new THREE.MeshStandardMaterial({ color: 0xffdd88, emissive: 0xffaa00, emissiveIntensity: 4.0, metalness: 1.0, roughness: 0.1 });
             const star = new THREE.Mesh(starGeo, starMat);
-            // --- 关键修正：沿Z轴旋转180度，让尖角朝上 ---
-            star.rotation.z = Math.PI; 
+            star.rotation.z = Math.PI; // 尖角朝上修正
             star.position.set(0, CONFIG.particles.treeHeight / 2 + 1.2, 0);
             mainGroup.add(star);
 
