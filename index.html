@@ -88,7 +88,7 @@
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
         import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'; 
 
-        // --- 完整保留：原版烟花系统 ---
+        // --- 完整保留：原版烟花系统 (Shell/Spark/Smoke) ---
         const fwCanvas = document.getElementById('fireworks-canvas');
         const fwCtx = fwCanvas.getContext('2d');
         let particles = [];
@@ -97,7 +97,7 @@
         class Spark { constructor(x, y, vx, vy) { this.x = x; this.y = y; this.vx = vx; this.vy = vy; this.life = random(40, 80); this.maxLife = this.life; } update() { this.vx *= 0.96; this.vy *= 0.96; this.vy += 0.05; this.x += this.vx; this.y += this.vy; this.life--; return this.life > 0; } draw() { fwCtx.fillStyle = `rgba(255, 217, 102, ${this.life/this.maxLife})`; fwCtx.beginPath(); fwCtx.arc(this.x, this.y, 2, 0, Math.PI*2); fwCtx.fill(); } }
         class Shell { constructor(x, y, targetX, targetY) { this.x = x; this.y = y; this.targetY = targetY; this.vy = -Math.sqrt(2 * 0.15 * (y - targetY)); this.vx = (targetX - x) / (Math.abs(this.vy) / 0.15); this.isDead = false; } update() { this.vy += 0.15; this.x += this.vx; this.y += this.vy; if (this.vy >= 0) { this.isDead = true; for(let i=0; i<80; i++){ const ang = random(0, Math.PI*2); const spd = random(4, 15); particles.push(new Spark(this.x, this.y, Math.cos(ang)*spd, Math.sin(ang)*spd)); } } return !this.isDead; } draw() { fwCtx.fillStyle = '#ffaa00'; fwCtx.beginPath(); fwCtx.arc(this.x, this.y, 3, 0, Math.PI*2); fwCtx.fill(); } }
 
-        // --- 完整保留：3D 引擎与视觉效果 ---
+        // --- 完整保留：3D 引擎与 v14 原版视觉参数 ---
         const CONFIG = { colors: { bg: 0x02040c }, particles: { count: 1800, treeHeight: 24, treeRadius: 8.5 } };
         const STATE = { mode: 'TREE', focusTarget: null, rotation: { x: 0, y: 0 } };
         let scene, camera, renderer, composer, mainGroup, clock = new THREE.Clock(), particleSystem = [];
@@ -128,6 +128,7 @@
             });
         };
 
+        // --- 自动轮播巡展 (2.5秒) ---
         window.activateAutoSlideshow = () => {
             STATE.mode = 'SCATTER';
             const photos = particleSystem.filter(p => p.type === 'PHOTO');
@@ -180,22 +181,28 @@
                 mainGroup.add(m); particleSystem.push(new Particle(m, 'BOX'));
             }
 
-            // --- 修正：真正的五角星 ---
+            // --- 修正：真正立在树顶的璀璨五角星 ⭐ ---
             const starShape = new THREE.Shape();
-            const outerRadius = 1.5; const innerRadius = 0.7; const numPoints = 5;
-            for (let i = 0; i < numPoints * 2; i++) {
-                const angle = (i / (numPoints * 2)) * Math.PI * 2;
-                const radius = i % 2 === 0 ? outerRadius : innerRadius;
-                const x = Math.cos(angle) * radius; const y = Math.sin(angle) * radius;
+            const outerRadius = 1.5; const innerRadius = 0.7;
+            for (let i = 0; i < 10; i++) {
+                const angle = (i / 10) * Math.PI * 2 - Math.PI / 2;
+                const r = i % 2 === 0 ? outerRadius : innerRadius;
+                const x = Math.cos(angle) * r; const y = Math.sin(angle) * r;
                 if (i === 0) starShape.moveTo(x, y); else starShape.lineTo(x, y);
             }
             starShape.closePath();
-            const starGeo = new THREE.ExtrudeGeometry(starShape, { steps: 1, depth: 0.5, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.1, bevelSegments: 3 });
-            const starMat = new THREE.MeshStandardMaterial({ color: 0xffdd88, emissive: 0xffaa00, emissiveIntensity: 2.8, metalness: 1.0, roughness: 0.1 });
+            
+            const starGeo = new THREE.ExtrudeGeometry(starShape, { 
+                depth: 0.4, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.1, bevelSegments: 3 
+            });
+            starGeo.center(); // 确保星星绕自己的正中心旋转
+            
+            const starMat = new THREE.MeshStandardMaterial({ 
+                color: 0xffdd88, emissive: 0xffaa00, emissiveIntensity: 4.0, metalness: 1.0, roughness: 0.1 
+            });
             const star = new THREE.Mesh(starGeo, starMat);
-            // 旋转90度让它立起来，并放置在树顶
-            star.rotation.x = Math.PI / 2;
-            star.position.set(0, CONFIG.particles.treeHeight / 2 + 0.5, 0);
+            // 此时不再旋转 X 轴，星星默认就是立在 XY 平面（垂直站立）的
+            star.position.set(0, CONFIG.particles.treeHeight / 2 + 1.2, 0);
             mainGroup.add(star);
 
             const snowGeo = new THREE.BufferGeometry(); const snowPos = [];
