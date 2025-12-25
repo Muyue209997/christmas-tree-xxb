@@ -88,7 +88,7 @@
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
         import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'; 
 
-        // --- 完整保留：原版烟花系统 (Shell/Spark/Smoke) ---
+        // --- 完整保留：原版烟花系统 ---
         const fwCanvas = document.getElementById('fireworks-canvas');
         const fwCtx = fwCanvas.getContext('2d');
         let particles = [];
@@ -128,7 +128,6 @@
             });
         };
 
-        // --- 自动轮播巡展 (2.5秒) ---
         window.activateAutoSlideshow = () => {
             STATE.mode = 'SCATTER';
             const photos = particleSystem.filter(p => p.type === 'PHOTO');
@@ -195,13 +194,14 @@
             const starGeo = new THREE.ExtrudeGeometry(starShape, { 
                 depth: 0.4, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.1, bevelSegments: 3 
             });
-            starGeo.center(); // 确保星星绕自己的正中心旋转
+            starGeo.center(); 
             
             const starMat = new THREE.MeshStandardMaterial({ 
                 color: 0xffdd88, emissive: 0xffaa00, emissiveIntensity: 4.0, metalness: 1.0, roughness: 0.1 
             });
             const star = new THREE.Mesh(starGeo, starMat);
-            // 此时不再旋转 X 轴，星星默认就是立在 XY 平面（垂直站立）的
+            // --- 关键修正：沿Z轴旋转180度，让尖角朝上 ---
+            star.rotation.z = Math.PI; 
             star.position.set(0, CONFIG.particles.treeHeight / 2 + 1.2, 0);
             mainGroup.add(star);
 
